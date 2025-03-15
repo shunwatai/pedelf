@@ -21,15 +21,22 @@ type Context struct {
 }
 
 func GetCtxFromInput(src io.ReadSeeker) (*Context, error) {
-	ctx, err := api.ReadContext(src, nil)
+	// ctx, err := api.ReadContext(src, nil)
+	ctx, err := api.ReadAndValidate(src, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ReadContext, err: %s", err.Error())
 	}
 
-	pdfcpu.OptimizeXRefTable(ctx)
-	api.OptimizeContext(ctx)
+	if err := pdfcpu.OptimizeXRefTable(ctx); err != nil {
+		return nil, fmt.Errorf("failed to OptimizeXRefTable, err: %s", err.Error())
+	}
+	if err := api.OptimizeContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to OptimizeContext, err: %s", err.Error())
+	}
+	if err := ctx.EnsurePageCount(); err != nil {
+		return nil, fmt.Errorf("failed to EnsurePageCount, err: %s", err.Error())
+	}
 
-	ctx.EnsurePageCount()
 	pages := ctx.PageCount
 	PedelfCtx := &Context{
 		Context:    ctx,
@@ -66,16 +73,16 @@ func (ctx *Context) CompressImages(compressLvl int) error {
 
 	for _, rawImage := range ctx.Images {
 		for _, img := range rawImage {
-			log.Printf("img: name-%s, type-%s, page-%d, %dx%d\n", img.Name, img.FileType, img.PageNr, img.Width, img.Height)
-
+			// log.Printf("img: name-%s, type-%s, page-%d, %dx%d\n", img.Name, img.FileType, img.PageNr, img.Width, img.Height)
 			im, err := imaging.Decode(img)
 			if err != nil {
 				// unsupported image format may happen here, skip handling it
-				fmt.Errorf("image.Decode err: %+v\n", err.Error())
+				fmt.Printf("image.Decode err: %+v\n", err.Error())
 				continue
 			}
 
-			resizedImg := imaging.Fit(im, im.Bounds().Dx()/compressLvl, im.Bounds().Dy()/compressLvl, imaging.Lanczos)
+			// resizedImg := imaging.Fit(im, im.Bounds().Dx()/compressLvl, im.Bounds().Dy()/compressLvl, imaging.Lanczos)
+			resizedImg := imaging.Resize(im, im.Bounds().Dx()/compressLvl, 0, imaging.Lanczos)
 
 			smallerBuf := new(bytes.Buffer)
 			err = imaging.Encode(smallerBuf, resizedImg, imaging.JPEG, imaging.JPEGQuality(jpegQuality))
@@ -83,6 +90,7 @@ func (ctx *Context) CompressImages(compressLvl int) error {
 				return fmt.Errorf("jpeg.Encode err: %+v", err.Error())
 			}
 
+			// Update the original image with the resized image
 			sd2, _, _, _ := model.CreateImageStreamDict(ctx.XRefTable, smallerBuf, false, false)
 			ctx.XRefTable.Table[img.ObjNr].Object = *sd2
 		}

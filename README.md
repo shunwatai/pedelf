@@ -1,6 +1,6 @@
 # Pedelf
 
-Simple program for trying to "compress" the size of PDF by reducing the images in the file.
+Simple program for trying to "compress" the size of images in the PDF file.
 
 Used packages:
 
@@ -15,6 +15,10 @@ Inpired by [pdfcomprezzor](https://github.com/henrixapp/pdfcomprezzor/blob/maste
 2. Scale down the images and convert the images to jpg with lower quality
 3. Update the images back in pdf
 4. Export the results
+
+## Known issues
+
+Only can shrink `jpeg`, `png`, `gif` in the PDF, other format like `tiff`, `jpx` etc. seems fail to handle by [imaging](https://github.com/disintegration/imaging)
 
 ## Example
 
